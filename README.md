@@ -1,2 +1,2 @@
 # databricks-usage-cost-analysis
-this repository will provide the script and power bi template to understand the usage and the associated cost of databricks.
+This repository contains scripts and a Power BI template designed to analyze and visualize Databricks usage and its associated costs.
