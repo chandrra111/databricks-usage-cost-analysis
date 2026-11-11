@@ -1,0 +1,200 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json",
+  "name": "8c490d58c2628a609bfb",
+  "position": {
+    "x": 40,
+    "y": 80,
+    "z": 2000,
+    "width": 1200,
+    "height": 600,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "What this report shows",
+                    "textStyle": {
+                      "fontSize": "12pt",
+                      "color": "#EB6834",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Databricks compute consumption and cost across workspaces, SQL warehouses, job clusters, serverless notebooks, apps and more. Cost is attributed to the identity that drove it (user or service principal): SQL Warehouse cost is split across users in proportion to the queries they ran each day, and everything else is attributed from billing metadata.",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Currency conversion",
+                    "textStyle": {
+                      "fontSize": "12pt",
+                      "color": "#EB6834",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Cost is DBUs x Databricks list price (USD). It is converted to the LocalCurrency parameter using the Frankfurter API (ECB reference rates): one rate per month = the last available rate on or before the month end.",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Connect your own workspace",
+                    "textStyle": {
+                      "fontSize": "12pt",
+                      "color": "#EB6834",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Home > Transform data > Edit parameters: set DataSource = Databricks, then ServerHostname, HttpPath, Catalog, Schema (where you created vw_billing_usage_with_attribution) and LocalCurrency. Sign in with a token or Microsoft Entra ID and Refresh. DataSource = Demo loads sample data from GitHub.",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Disclaimer",
+                    "textStyle": {
+                      "fontSize": "12pt",
+                      "color": "#EB6834",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "List-price cost excludes negotiated discounts and, for classic compute, the cloud provider's VM/storage charges. Converted figures may closely match but will not exactly match your cloud invoice (timing, rounding, rate source, pricing).",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Source & author",
+                    "textStyle": {
+                      "fontSize": "12pt",
+                      "color": "#EB6834",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "github.com/chandrra111/databricks-usage-cost-analysis  ·  Template by Balachandra Srinevasalu  ·  MIT License",
+                    "textStyle": {
+                      "fontSize": "11pt",
+                      "color": "#252423"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,80 @@
+table fx_rates_monthly
+	lineageTag: 2ce530b3-f0b1-68b9-921e-195717fc10f5
+
+	column calendar_month
+		dataType: string
+		lineageTag: 8380440d-e75c-660b-e83e-338026968df5
+		summarizeBy: none
+		sourceColumn: calendar_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column rate_effective_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: b89dd2ec-f064-f3bb-d9e1-abcb0d4de79f
+		summarizeBy: none
+		sourceColumn: rate_effective_date
+
+		annotation SummarizationSetBy = Automatic
+
+	column exchange_rate
+		dataType: double
+		formatString: 0.0000
+		lineageTag: 05ac4f33-cfd9-71d5-9042-9836c7f5388c
+		summarizeBy: none
+		sourceColumn: exchange_rate
+
+		annotation SummarizationSetBy = Automatic
+
+	column local_currency
+		dataType: string
+		lineageTag: 8bef4bc5-c5dc-5428-d74a-3275a3d01e5a
+		summarizeBy: none
+		sourceColumn: local_currency
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fx_rates_monthly = m
+		mode: import
+		source =
+				let
+				    // One rate per month = last ECB reference rate on or before month end (Frankfurter API).
+				    MonthsBack = 24,
+				    Today = Date.From(DateTime.LocalNow()),
+				    StartDate = Date.StartOfMonth(Date.AddMonths(Today, -MonthsBack)),
+				    Months = List.Transform({0..MonthsBack}, each Date.ToText(Date.AddMonths(StartDate, _), "yyyy-MM", "en-US")),
+
+				    UsdTable = Table.FromRecords(List.Transform(Months, each [calendar_month = _, rate_effective_date = Date.FromText(_ & "-01"), exchange_rate = 1.0])),
+
+				    FromApi = () =>
+				        let
+				            Response = Json.Document(Web.Contents("https://api.frankfurter.dev",
+				                [RelativePath = "v1/" & Date.ToText(Date.AddDays(StartDate, -10), "yyyy-MM-dd", "en-US") & "..",
+				                 Query = [base = "USD", symbols = LocalCurrency]])),
+				            Rates = Response[rates],
+				            Daily = Table.FromRecords(List.Transform(Record.FieldNames(Rates), (d) =>
+				                [rate_date = Date.FromText(d), exchange_rate = Record.Field(Record.Field(Rates, d), LocalCurrency)])),
+				            Typed = Table.TransformColumnTypes(Daily, {{"rate_date", type date}, {"exchange_rate", type number}}),
+				            // For each month: latest rate dated on/before the month end
+				            PerMonth = Table.FromRecords(List.Transform(Months, (m) =>
+				                let
+				                    MonthEnd = Date.EndOfMonth(Date.FromText(m & "-01")),
+				                    Eligible = Table.SelectRows(Typed, each [rate_date] <= MonthEnd),
+				                    Last = if Table.IsEmpty(Eligible) then null else Table.Max(Eligible, "rate_date")
+				                in
+				                    [calendar_month = m,
+				                     rate_effective_date = if Last = null then null else Last[rate_date],
+				                     exchange_rate = if Last = null then null else Last[exchange_rate]])),
+				            NonEmpty = Table.SelectRows(PerMonth, each [exchange_rate] <> null)
+				        in
+				            NonEmpty,
+
+				    Result = if Text.Upper(LocalCurrency) = "USD" then UsdTable else FromApi(),
+				    Typed = Table.TransformColumnTypes(Result, {{"calendar_month", type text}, {"rate_effective_date", type date}, {"exchange_rate", type number}}),
+				    AddCcy = Table.AddColumn(Typed, "local_currency", each Text.Upper(LocalCurrency), type text)
+				in
+				    AddCcy
+
+
+	annotation PBI_ResultType = Table

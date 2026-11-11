@@ -1,0 +1,52 @@
+{
+  "name": "Databricks Cost Analysis",
+  "dataColors": [
+    "#2A78D6",
+    "#EB6834",
+    "#1BAF7A",
+    "#EDA100",
+    "#E87BA4",
+    "#008300",
+    "#6250D6",
+    "#E34948"
+  ],
+  "background": "#FFFFFF",
+  "foreground": "#14213D",
+  "tableAccent": "#2A78D6",
+  "good": "#1AAB40",
+  "neutral": "#D9B300",
+  "bad": "#D64554",
+  "textClasses": {
+    "label": {
+      "fontFace": "Segoe UI",
+      "fontSize": 9,
+      "color": "#52514E"
+    },
+    "title": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 11,
+      "color": "#14213D"
+    },
+    "callout": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 22,
+      "color": "#14213D"
+    }
+  },
+  "visualStyles": {
+    "page": {
+      "*": {
+        "background": [
+          {
+            "color": {
+              "solid": {
+                "color": "#F4F4F1"
+              }
+            },
+            "transparency": 0
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+relationship babda257-d63b-6633-9db4-482bbf0a672b
+	fromColumn: billing_usage.calendar_month
+	toColumn: fx_rates_monthly.calendar_month
+

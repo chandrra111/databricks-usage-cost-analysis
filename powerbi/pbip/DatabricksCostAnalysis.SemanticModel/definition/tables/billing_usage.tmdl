@@ -1,0 +1,327 @@
+table billing_usage
+	lineageTag: 7e69ec82-4c52-7562-215a-6da60ed48ca3
+
+	measure 'Total Cost USD' = SUM ( billing_usage[total_usage_price_usd] )
+		formatString: #,0.00
+		displayFolder: Cost
+		lineageTag: febaf5de-2e80-6e9d-8396-009897350ba3
+
+	measure 'Allocated DBUs' = SUM ( billing_usage[allocated_dbus] )
+		formatString: #,0
+		displayFolder: Usage
+		lineageTag: 862477de-7540-2d22-6194-0729c1d38d5f
+
+	measure 'Total Query Count' = SUM ( billing_usage[query_count] )
+		formatString: #,0
+		displayFolder: Usage
+		lineageTag: 41080b8d-33e5-a931-2c19-2ddb9877a51b
+
+	measure 'Total Duration (min)' = SUM ( billing_usage[total_duration_in_min] )
+		formatString: #,0
+		displayFolder: Usage
+		lineageTag: 9478a50e-9fb5-6d19-d9ad-89964002397c
+
+	measure 'Month Rate' = ```
+			VAR m = SELECTEDVALUE ( billing_usage[calendar_month] )
+			VAR r = LOOKUPVALUE ( fx_rates_monthly[exchange_rate], fx_rates_monthly[calendar_month], m )
+			VAR lastKnown =
+			    CALCULATE (
+			        MAX ( fx_rates_monthly[exchange_rate] ),
+			        TOPN ( 1, FILTER ( ALL ( fx_rates_monthly ), fx_rates_monthly[calendar_month] <= m ), fx_rates_monthly[calendar_month], DESC )
+			    )
+			RETURN COALESCE ( r, lastKnown )
+			```
+		formatString: 0.0000
+		displayFolder: Currency
+		lineageTag: 0d4fee65-610a-04bd-82b8-605a6b51d54b
+
+	measure 'Total Cost Local' = ```
+			SUMX (
+			    VALUES ( billing_usage[calendar_month] ),
+			    CALCULATE ( SUM ( billing_usage[total_usage_price_usd] ) ) * [Month Rate]
+			)
+			```
+		formatString: #,0
+		displayFolder: Cost
+		lineageTag: 1f4bbbb7-36a1-2dbe-f8f2-d89e494fa2a6
+
+	measure 'Exchange Rate' = DIVIDE ( [Total Cost Local], [Total Cost USD] )
+		formatString: 0.00
+		displayFolder: Currency
+		lineageTag: 4f37c7eb-0b35-ea06-d5e3-e9fd7f9c6a08
+
+	measure 'Local Currency' = SELECTEDVALUE ( fx_rates_monthly[local_currency], "USD" )
+		displayFolder: Currency
+		lineageTag: 50cddd9d-fe9a-4e94-44a8-7ddf547b157e
+
+	measure 'Cost Share %' = DIVIDE ( [Total Cost Local], CALCULATE ( [Total Cost Local], ALLSELECTED () ) )
+		formatString: 0.0%
+		displayFolder: Cost
+		lineageTag: fac1b7d0-973e-9c84-e7e8-1a02fb755355
+
+	measure 'Avg Cost per Day' = DIVIDE ( [Total Cost Local], DISTINCTCOUNT ( billing_usage[usage_date] ) )
+		formatString: #,0
+		displayFolder: Cost
+		lineageTag: f5715ffa-568a-4d82-857f-6c360112c4b8
+
+	measure 'Identities with Spend' = CALCULATE ( DISTINCTCOUNT ( billing_usage[attributed_to] ), billing_usage[total_usage_price_usd] > 0 )
+		formatString: #,0
+		displayFolder: Usage
+		lineageTag: 287af09c-3b41-35cd-70ff-679943361e7b
+
+	measure 'Selected Period' = ```
+			VAR mn = MIN ( billing_usage[calendar_month] )
+			VAR mx = MAX ( billing_usage[calendar_month] )
+			RETURN IF ( mn = mx, mn, mn & " to " & mx )
+			```
+		displayFolder: Labels
+		lineageTag: 14d68095-e924-70c6-3ffd-2989a2ecd6ec
+
+	measure 'Cost Title' = "Total cost (" & [Local Currency] & ")"
+		displayFolder: Labels
+		lineageTag: 6e043fb7-45e1-4f1a-b80b-aa2a32ad3064
+
+	measure 'Last Refreshed' = "Data as of " & FORMAT ( MAX ( billing_usage[usage_date] ), "dd-mmm-yyyy" )
+		displayFolder: Labels
+		lineageTag: 0bdd4953-5633-022d-b141-1b09d33d003a
+
+	column usage_date
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		lineageTag: ad0f62cc-784f-8821-36e8-69e18f44c895
+		summarizeBy: none
+		sourceColumn: usage_date
+
+		annotation SummarizationSetBy = Automatic
+
+	column workspace_name
+		dataType: string
+		lineageTag: 8b4fefdd-5fd9-4751-4835-c1785dc93da0
+		summarizeBy: none
+		sourceColumn: workspace_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column compute_category
+		dataType: string
+		lineageTag: 6abcc7da-5b30-cb3a-4183-653cfa20c579
+		summarizeBy: none
+		sourceColumn: compute_category
+
+		annotation SummarizationSetBy = Automatic
+
+	column warehouse_name
+		dataType: string
+		lineageTag: fa4be44a-9b1a-14df-01e8-354bf8e9a97b
+		summarizeBy: none
+		sourceColumn: warehouse_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column compute_resource_name
+		dataType: string
+		lineageTag: 8ff23030-bea4-88db-eb69-a6a5ba73a196
+		summarizeBy: none
+		sourceColumn: compute_resource_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column billing_origin_product
+		dataType: string
+		lineageTag: 22f03114-7222-37cc-0f75-fd9aa628722d
+		summarizeBy: none
+		sourceColumn: billing_origin_product
+
+		annotation SummarizationSetBy = Automatic
+
+	column sku_name
+		dataType: string
+		lineageTag: 9d70292b-ba48-1667-2f68-a5bde22e4eda
+		summarizeBy: none
+		sourceColumn: sku_name
+
+		annotation SummarizationSetBy = Automatic
+
+	column attributed_to
+		dataType: string
+		lineageTag: d59e33ee-f5db-2215-6426-9e6c171de81d
+		summarizeBy: none
+		sourceColumn: attributed_to
+
+		annotation SummarizationSetBy = Automatic
+
+	column identity_type
+		dataType: string
+		lineageTag: 4fc0d63c-0a0d-2944-327a-82de2940e3f7
+		summarizeBy: none
+		sourceColumn: identity_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column query_source
+		dataType: string
+		lineageTag: 8ff1a0af-725f-2049-2880-e6cdb5e39b7e
+		summarizeBy: none
+		sourceColumn: query_source
+
+		annotation SummarizationSetBy = Automatic
+
+	column client_application
+		dataType: string
+		lineageTag: c9a406b7-61de-6f8e-35cc-1efd52f6df6c
+		summarizeBy: none
+		sourceColumn: client_application
+
+		annotation SummarizationSetBy = Automatic
+
+	column statement_type
+		dataType: string
+		lineageTag: 148f9cbc-4534-cfa7-6908-32765d7575f8
+		summarizeBy: none
+		sourceColumn: statement_type
+
+		annotation SummarizationSetBy = Automatic
+
+	column attribution_method
+		dataType: string
+		lineageTag: a56e8592-3bf9-f7da-e3c6-b06dba9fa44a
+		summarizeBy: none
+		sourceColumn: attribution_method
+
+		annotation SummarizationSetBy = Automatic
+
+	column attribution_confidence
+		dataType: string
+		lineageTag: 622c7435-6b28-79b6-b84c-cad21980abab
+		summarizeBy: none
+		sourceColumn: attribution_confidence
+
+		annotation SummarizationSetBy = Automatic
+
+	column is_serverless
+		dataType: boolean
+		lineageTag: 761a0be5-13c3-d246-0d3a-adbca450ad6b
+		summarizeBy: none
+		sourceColumn: is_serverless
+
+		annotation SummarizationSetBy = Automatic
+
+	column allocated_dbus
+		dataType: double
+		formatString: #,0.00
+		lineageTag: ba099984-2bb2-a759-e4bc-1fd6c9631711
+		summarizeBy: sum
+		sourceColumn: allocated_dbus
+
+		annotation SummarizationSetBy = Automatic
+
+	column list_price
+		dataType: double
+		formatString: 0.000
+		lineageTag: c2567a03-6d72-60dc-1709-c2361f77df6b
+		summarizeBy: none
+		sourceColumn: list_price
+
+		annotation SummarizationSetBy = Automatic
+
+	column query_count
+		dataType: int64
+		formatString: 0
+		lineageTag: 0cbed701-87e4-17aa-02f6-80a2109c07af
+		summarizeBy: sum
+		sourceColumn: query_count
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_duration_ms
+		dataType: double
+		formatString: #,0
+		lineageTag: 3e02240a-b3cc-1876-2944-fb916e9ee015
+		summarizeBy: sum
+		sourceColumn: total_duration_ms
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_usage_price_usd
+		dataType: double
+		formatString: #,0.00
+		lineageTag: 77e605de-5646-a119-1d5f-4ddbcbeabb82
+		summarizeBy: sum
+		sourceColumn: total_usage_price_usd
+
+		annotation SummarizationSetBy = Automatic
+
+	column calendar_month
+		dataType: string
+		lineageTag: 8380440d-e75c-660b-e83e-338026968df5
+		summarizeBy: none
+		sourceColumn: calendar_month
+
+		annotation SummarizationSetBy = Automatic
+
+	column calendar_day
+		dataType: int64
+		formatString: 0
+		lineageTag: 40f13023-45cc-63dc-609c-d2438468e287
+		summarizeBy: none
+		sourceColumn: calendar_day
+
+		annotation SummarizationSetBy = Automatic
+
+	column calendar_weekday
+		dataType: string
+		lineageTag: 387a5e43-54f4-1eeb-af8b-3d55dd0f5a30
+		summarizeBy: none
+		sourceColumn: calendar_weekday
+
+		annotation SummarizationSetBy = Automatic
+
+	column total_duration_in_min
+		dataType: double
+		formatString: #,0.0
+		lineageTag: 0b56ce09-4bc1-bc7f-cf04-38442e20c17a
+		summarizeBy: sum
+		sourceColumn: total_duration_in_min
+
+		annotation SummarizationSetBy = Automatic
+
+	partition billing_usage = m
+		mode: import
+		source =
+				let
+				    // ---- Source 1: sample data published in the GitHub repo (no credentials needed) ----
+				    FromDemo = () =>
+				        let
+				            Raw = Csv.Document(
+				                Web.Contents("https://raw.githubusercontent.com", [RelativePath = DemoDataPath]),
+				                [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				            Promoted = Table.PromoteHeaders(Raw, [PromoteAllScalars = true])
+				        in
+				            Promoted,
+
+				    // ---- Source 2: the attribution view in your Databricks workspace ----
+				    FromDatabricks = () =>
+				        let
+				            Src = Databricks.Catalogs(ServerHostname, HttpPath, [Catalog = null, Database = null, EnableAutomaticProxyDiscovery = null]),
+				            Cat = Src{[Name = Catalog, Kind = "Database"]}[Data],
+				            Sch = Cat{[Name = Schema, Kind = "Schema"]}[Data],
+				            Vw = Sch{[Name = ViewName, Kind = "View"]}[Data]
+				        in
+				            Vw,
+
+				    Source = if DataSource = "Databricks" then FromDatabricks() else FromDemo(),
+				    Selected = Table.SelectColumns(Source, {"usage_date", "workspace_name", "compute_category", "warehouse_name", "compute_resource_name", "billing_origin_product", "sku_name", "attributed_to", "identity_type", "query_source", "client_application", "statement_type", "attribution_method", "attribution_confidence", "is_serverless", "allocated_dbus", "list_price", "query_count", "total_duration_ms", "total_usage_price_usd"}, MissingField.UseNull),
+				    Typed = Table.TransformColumnTypes(Selected, {
+				        {"usage_date", type date}, {"is_serverless", type logical}, {"query_count", Int64.Type},
+				        {"allocated_dbus", type number}, {"list_price", type number}, {"total_duration_ms", type number}, {"total_usage_price_usd", type number},
+				        {"workspace_name", type text}, {"compute_category", type text}, {"warehouse_name", type text}, {"compute_resource_name", type text}, {"billing_origin_product", type text}, {"sku_name", type text}, {"attributed_to", type text}, {"identity_type", type text}, {"query_source", type text}, {"client_application", type text}, {"statement_type", type text}, {"attribution_method", type text}, {"attribution_confidence", type text}
+				    }, "en-US"),
+				    AddMonth = Table.AddColumn(Typed, "calendar_month", each Date.ToText([usage_date], "yyyy-MM", "en-US"), type text),
+				    AddDay = Table.AddColumn(AddMonth, "calendar_day", each Date.Day([usage_date]), Int64.Type),
+				    AddWeekday = Table.AddColumn(AddDay, "calendar_weekday", each Date.ToText([usage_date], "ddd", "en-US"), type text),
+				    AddMinutes = Table.AddColumn(AddWeekday, "total_duration_in_min", each [total_duration_ms] / 60000, type number)
+				in
+				    AddMinutes
+
+
+	annotation PBI_ResultType = Table
