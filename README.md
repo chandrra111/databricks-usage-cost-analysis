@@ -14,7 +14,8 @@ A ready-to-use kit built only on Databricks **system tables**. It works for any 
 | [`notebooks/`](notebooks) | `load_fx_rates.py`: daily USD→INR/EUR/GBP… rates from the free Frankfurter (ECB) API |
 | [`python/`](python) | `run_cost_report.py`: give it a workspace URL + token, get a CSV and an HTML dashboard |
 | [`html/`](html) | `databricks-cost-dashboard.html`: self-contained dashboard (drop in a CSV or embed data) with currency switcher and demo data |
-| [`powerbi/`](powerbi) | Power Query (parameterised), DAX measures and a step-by-step guide to build and share a `.pbit` template |
+| [`powerbi/`](powerbi) | **Ready-made Power BI project** (`pbip/DatabricksCostAnalysis.pbip`, 6 pages of visuals, Demo/Databricks switch) plus Power Query, DAX and a guide to export a `.pbit` |
+| [`sample_data/`](sample_data) | Synthetic demo dataset (fictional names) used by the Power BI Demo mode |
 | [`docs/`](docs) | [How the attribution works](docs/HOW_IT_WORKS.md) · [How USD is converted to INR](docs/CURRENCY_CONVERSION.md) |
 
 ## Key ideas
