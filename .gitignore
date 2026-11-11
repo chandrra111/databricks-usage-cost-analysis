@@ -1,0 +1,6 @@
+# generated reports may contain real usage data / identities - never commit them
+databricks_cost_report*.csv
+databricks_cost_report*.html
+*.pbix
+.env
+__pycache__/
