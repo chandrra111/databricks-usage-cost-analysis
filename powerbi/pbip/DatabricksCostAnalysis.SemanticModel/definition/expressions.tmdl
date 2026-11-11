@@ -1,0 +1,48 @@
+/// Demo = sample data from GitHub. Databricks = your workspace.
+expression DataSource = "Demo" meta [IsParameterQuery=true, List={"Demo", "Databricks"}, DefaultValue="Demo", Type="Text", IsParameterQueryRequired=true]
+	lineageTag: f6f942cb-2d21-b969-d883-2ddec2a9d24b
+
+	annotation PBI_ResultType = Text
+
+/// SQL Warehouse > Connection details > Server hostname
+expression ServerHostname = "adb-0000000000000000.0.azuredatabricks.net" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: fb13dcc8-eec7-8c9d-38c8-d3b4fb485f13
+
+	annotation PBI_ResultType = Text
+
+/// SQL Warehouse > Connection details > HTTP path
+expression HttpPath = "/sql/1.0/warehouses/0000000000000000" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 930099c2-ff3b-bb77-26a0-c6328cf2b81b
+
+	annotation PBI_ResultType = Text
+
+/// Catalog holding the view
+expression Catalog = "main" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: e504f547-9974-ac64-5874-db7237fc1542
+
+	annotation PBI_ResultType = Text
+
+/// Schema holding the view
+expression Schema = "finops" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 58032492-1366-4b92-7044-b9c4d18e8456
+
+	annotation PBI_ResultType = Text
+
+/// Attribution view name
+expression ViewName = "vw_billing_usage_with_attribution" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 5089968b-e9f9-59dc-2d79-d38deba836e7
+
+	annotation PBI_ResultType = Text
+
+/// ISO currency to convert USD into (INR, EUR, GBP, AUD ...). USD = no conversion
+expression LocalCurrency = "INR" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 86755421-2ff9-ff0d-2a0f-f85796987b48
+
+	annotation PBI_ResultType = Text
+
+/// raw.githubusercontent.com path of the demo CSV
+expression DemoDataPath = "chandrra111/databricks-usage-cost-analysis/main/sample_data/demo_billing_usage.csv" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 34df5070-2998-000a-13af-605cd396461d
+
+	annotation PBI_ResultType = Text
+

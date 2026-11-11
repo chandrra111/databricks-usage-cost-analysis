@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<!--
+  Databricks Cost Analysis - HTML dashboard template
+  Author : Balachandra Srinevasalu (https://github.com/chandrra111)
+  License: MIT
+
+  Three ways to feed it data:
+    1. python python/run_cost_report.py --host ... --http-path ... --token ...
+       -> pulls the data from your workspace and writes a ready-to-open copy of this file.
+    2. Export vw_billing_usage_with_attribution (or the aggregated extract) as CSV and
+       drag-drop it onto this page.
+    3. Click "Try demo data" to explore with synthetic numbers.
+
+  Everything runs in the browser. Data never leaves your machine; the only network calls
+  are to load Chart.js and (optionally) fetch FX rates from api.frankfurter.dev.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Databricks Cost Analysis</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f4f4f1;
+    --surface-1: #fcfcfb;
+    --surface-2: #ffffff;
+    --border: #e3e2dc;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #7a7974;
+    --header: #14213d;
+    --header-ink: #ffffff;
+    --accent: #eb6834;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --seq-lo: #cde2fb;
+    --seq-hi: #184f95;
+    --grid: #ecebe6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page: #121211;
+      --surface-1: #1a1a19;
+      --surface-2: #222220;
+      --border: #33332f;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #9a998f;
+      --header: #0d1630;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --seq-lo: #1c2a3d;
+      --seq-hi: #6da7ec;
+      --grid: #2a2a27;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; background: var(--page); color: var(--text-primary); }
+  header { background: var(--header); color: var(--header-ink); padding: 18px 28px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  header .logo { width: 34px; height: 34px; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: .2px; }
+  header .sub { font-size: 12px; opacity: .75; }
+  header .spacer { flex: 1; }
+  .btn { border: 1px solid rgba(255,255,255,.35); background: transparent; color: inherit; padding: 7px 14px; border-radius: 6px; cursor: pointer; font: inherit; }
+  .btn:hover { background: rgba(255,255,255,.1); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.light { color: var(--text-primary); border-color: var(--border); background: var(--surface-2); }
+  main { padding: 18px 28px 40px; max-width: 1600px; margin: 0 auto; }
+  .filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .filters label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); margin-bottom: 3px; }
+  select, input[type=text], input[type=number] { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-2); color: var(--text-primary); font: inherit; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 14px 0; }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kpi .v { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: 12px; color: var(--text-secondary); }
+  .kpi .h { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+  .card h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+  .card h3 small { font-weight: 400; color: var(--text-muted); margin-left: 6px; }
+  .c4 { grid-column: span 4; } .c6 { grid-column: span 6; } .c8 { grid-column: span 8; } .c12 { grid-column: span 12; }
+  @media (max-width: 1100px) { .c4, .c6, .c8 { grid-column: span 12; } }
+  .chart { position: relative; height: 280px; }
+  .chart.tall { height: 380px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { position: sticky; top: 0; background: var(--surface-1); font-weight: 600; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+  .scroll { max-height: 460px; overflow: auto; }
+  .empty { text-align: center; padding: 70px 20px; border: 2px dashed var(--border); border-radius: 12px; background: var(--surface-1); }
+  .empty h2 { margin: 0 0 8px; font-weight: 600; }
+  .empty p { color: var(--text-secondary); max-width: 720px; margin: 8px auto; }
+  .drag { outline: 3px solid var(--accent); }
+  .note { font-size: 12px; color: var(--text-muted); margin-top: 18px; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .hidden { display: none !important; }
+  #fxStatus { font-size: 11px; color: var(--text-muted); }
+  code { background: var(--surface-2); border: 1px solid var(--border); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><path fill="#eb6834" d="M20 3 37 12.5 20 22 3 12.5Z" opacity=".95"/><path fill="none" stroke="#eb6834" stroke-width="3" d="M3 19.5 20 29 37 19.5M3 26.5 20 36 37 26.5"/></svg>
+  <div>
+    <h1>Databricks Cost Analysis</h1>
+    <div class="sub" id="subtitle">Usage &amp; cost attribution from Databricks system tables</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="btnDemo">Try demo data</button>
+  <label class="btn primary">Load CSV<input type="file" id="file" accept=".csv,text/csv" hidden></label>
+  <button class="btn hidden" id="btnExport">Export filtered CSV</button>
+</header>
+
+<main>
+  <section id="empty" class="empty">
+    <h2>Drop your cost CSV here</h2>
+    <p>Run <code>python python/run_cost_report.py --host &lt;workspace-host&gt; --http-path &lt;warehouse-http-path&gt;</code> to generate this dashboard with your data, or export the
+       <code>vw_billing_usage_with_attribution</code> view to CSV and drag it onto this page.</p>
+    <p>Nothing is uploaded anywhere. The file is read in your browser.</p>
+    <div class="row" style="justify-content:center;margin-top:16px">
+      <button class="btn light" id="btnDemo2">Try demo data</button>
+    </div>
+  </section>
+
+  <section id="dash" class="hidden">
+    <div class="filters">
+      <div><label for="fMonth">Month</label><select id="fMonth"></select></div>
+      <div><label for="fWs">Workspace</label><select id="fWs"></select></div>
+      <div><label for="fCat">Compute category</label><select id="fCat"></select></div>
+      <div><label for="fProd">Billing product</label><select id="fProd"></select></div>
+      <div><label for="fIdt">Identity type</label><select id="fIdt"></select></div>
+      <div><label for="fSrc">Query source</label><select id="fSrc"></select></div>
+      <div><label for="fCcy">Currency</label>
+        <select id="fCcy"></select>
+      </div>
+      <div><label for="fRate">Manual rate (optional)</label><input type="number" step="0.0001" id="fRate" placeholder="auto (month-end)"></div>
+    </div>
+    <div id="fxStatus" style="margin:6px 2px 0"></div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="kCost">-</div><div class="l">Total cost</div><div class="h" id="kCostH"></div></div>
+      <div class="kpi"><div class="v" id="kRate">-</div><div class="l">Exchange rate (USD →)</div><div class="h">last rate on/before month end</div></div>
+      <div class="kpi"><div class="v" id="kDbu">-</div><div class="l">DBUs consumed</div></div>
+      <div class="kpi"><div class="v" id="kQ">-</div><div class="l">SQL queries</div></div>
+      <div class="kpi"><div class="v" id="kIds">-</div><div class="l">Identities with spend</div></div>
+      <div class="kpi"><div class="v" id="kAvg">-</div><div class="l">Avg cost per day</div></div>
+    </div>
+
+    <div class="grid">
+      <div class="card c4"><h3>Cost by month</h3><div class="chart"><canvas id="chMonth"></canvas></div></div>
+      <div class="card c8"><h3>Daily cost trend</h3><div class="chart"><canvas id="chDay"></canvas></div></div>
+
+      <div class="card c4"><h3>Cost by billing product</h3><div class="chart"><canvas id="chProd"></canvas></div></div>
+      <div class="card c4"><h3>Cost by compute category</h3><div class="chart"><canvas id="chCat"></canvas></div></div>
+      <div class="card c4"><h3>Cost by query source <small>SQL Warehouse only</small></h3><div class="chart"><canvas id="chSrc"></canvas></div></div>
+
+      <div class="card c6"><h3>Top 15 identities by cost</h3><div class="chart tall"><canvas id="chUser"></canvas></div></div>
+      <div class="card c6"><h3>Cost by workspace &amp; compute resource</h3><div class="scroll" style="max-height:380px"><table id="tRes"></table></div></div>
+
+      <div class="card c12">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <h3 style="margin:0">Cost by identity &times; month</h3>
+          <input type="text" id="search" placeholder="Search user / service principal" style="max-width:300px">
+        </div>
+        <div class="scroll"><table id="tUser"></table></div>
+      </div>
+    </div>
+
+    <p class="note">
+      <span class="pill" id="meta"></span><br><br>
+      <b>How cost is calculated.</b> DBUs from <code>system.billing.usage</code> × list price from <code>system.billing.list_prices</code> (USD).
+      SQL Warehouse cost is split across users in proportion to the number of queries each ran that day (<code>system.query.history</code>);
+      idle warehouse cost stays with the warehouse owner. Local currency uses the last available ECB reference rate on or before each month end (Frankfurter API).
+      <br><b>Disclaimer.</b> List-price cost excludes negotiated discounts and, for classic compute, the cloud provider's VM/storage charges. Converted figures will closely match but not exactly equal your cloud invoice.
+      <br>Template by Balachandra Srinevasalu · <a href="https://github.com/chandrra111/databricks-usage-cost-analysis" style="color:inherit">github.com/chandrra111/databricks-usage-cost-analysis</a>
+    </p>
+  </section>
+</main>
+
+<script>
+/* ===================================================================================
+   Embedded data slot. python/run_cost_report.py replaces the token below with JSON.
+   Keep the line exactly as is.
+   =================================================================================== */
+const EMBEDDED = null; /*__EMBEDDED_DATA__*/
+
+/* ---------------------------------- helpers ---------------------------------- */
+const $ = (id) => document.getElementById(id);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const ECB_CCY = ["USD","INR","EUR","GBP","AUD","CAD","SGD","JPY","CHF","CNY","HKD","NZD","ZAR","SEK","NOK","DKK","PLN","BRL","MXN","KRW","MYR","THB","IDR","PHP","ILS","TRY","CZK","HUF","RON","ISK"];
+const LOCALE = { INR: "en-IN" };
+
+// Column aliases: accept the full view export, the aggregated extract, or short keys.
+const COLS = {
+  d:    ["usage_date", "d"],
+  ws:   ["workspace_name", "ws"],
+  cat:  ["compute_category", "cat"],
+  res:  ["compute_resource_name", "res", "warehouse_name"],
+  prod: ["billing_origin_product", "prod"],
+  sku:  ["sku_name", "sku"],
+  who:  ["attributed_to", "executed_by", "who"],
+  idt:  ["identity_type", "idt"],
+  src:  ["query_source", "src"],
+  dbu:  ["allocated_dbus", "dbu", "usage_quantity"],
+  q:    ["query_count", "q"],
+  usd:  ["total_usage_price_usd", "cost_usd", "usd"],
+};
+
+// Minimal RFC-4180 CSV parser (handles quotes, commas and newlines inside quotes).
+function parseCSV(text) {
+  const rows = []; let row = []; let f = ""; let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(f); f = ""; if (row.length > 1 || row[0] !== "") rows.push(row); row = [];
+    } else f += c;
+  }
+  if (f !== "" || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+
+// Normalise any supported input into compact records.
+function normalise(records) {
+  if (!records.length) return [];
+  const keys = Object.keys(records[0]);
+  const pick = {};
+  for (const [k, alts] of Object.entries(COLS)) pick[k] = alts.find((a) => keys.includes(a));
+  if (!pick.d || !pick.usd) throw new Error("CSV needs at least usage_date and total_usage_price_usd columns.");
+  return records.map((r) => ({
+    d: String(r[pick.d]).slice(0, 10),
+    ws: r[pick.ws] || "Unknown Workspace",
+    cat: r[pick.cat] || "Other",
+    res: r[pick.res] || "N/A",
+    prod: r[pick.prod] || "Unknown",
+    sku: r[pick.sku] || "",
+    who: r[pick.who] || "Unknown",
+    idt: r[pick.idt] || "Unknown",
+    src: r[pick.src] || "Unknown",
+    dbu: +r[pick.dbu] || 0,
+    q: +r[pick.q] || 0,
+    usd: +r[pick.usd] || 0,
+  })).filter((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.d));
+}
+
+/* ------------------------------- demo data -------------------------------- */
+// Synthetic, fictional organisation. Deterministic so screenshots are repeatable.
+function demoData() {
+  let seed = 42; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const ws = ["analytics-prod", "data-eng-prod", "data-eng-dev", "genai-sandbox", "finance-bi-prod"];
+  const users = ["asha.k@example.com","rahul.m@example.com","meera.s@example.com","john.d@example.com","li.wei@example.com",
+                 "fatima.z@example.com","carlos.r@example.com","nina.p@example.com","omar.h@example.com","sara.l@example.com"];
+  const sps = ["3f2b9c1e-7a44-4d1b-9e2f-0c8a5b6d7e11","9a1c2d3e-4b5f-4a6b-8c7d-1e2f3a4b5c6d","c0ffee00-1234-4abc-9def-001122334455"];
+  const whs = ["bi-serving-wh","adhoc-sql-wh","genie-wh","etl-sql-wh"];
+  const srcs = [["Power BI",0.34],["SQL Editor",0.22],["Dashboard",0.14],["Genie AI",0.12],["API",0.1],["Notebooks",0.08]];
+  const nonWh = [["Job Cluster","JOBS","nightly-ingest"],["Job Cluster","ALL_PURPOSE","shared-interactive"],["Serverless Notebook","INTERACTIVE","Notebook-1172"],
+                 ["Other","APPS","sales-copilot-app"],["Other","VECTOR_SEARCH","docs-index"],["Other","PREDICTIVE_OPTIMIZATION","No Compute Resource"],["Job","JOBS","Job-88213"]];
+  const out = []; const today = new Date(); const start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+  for (let dt = new Date(start); dt <= today; dt.setDate(dt.getDate() + 1)) {
+    const d = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`; const wk = dt.getDay() === 0 || dt.getDay() === 6 ? 0.35 : 1;
+    const growth = 1 + (dt - start) / (today - start) * 0.6;
+    for (const wh of whs) {
+      const w = ws[whs.indexOf(wh) % ws.length];
+      for (const [src, share] of srcs) {
+        const who = src === "Power BI" || src === "API" ? sps[Math.floor(rnd() * sps.length)] : users[Math.floor(rnd() * users.length)];
+        const usd = (18 + rnd() * 30) * share * wk * growth;
+        out.push({ d, ws: w, cat: "SQL Warehouse", res: wh, prod: wh === "genie-wh" ? "GENIE" : "SQL", sku: "PREMIUM_SERVERLESS_SQL_COMPUTE",
+                   who, idt: who.includes("@") ? "USER" : "SERVICE_PRINCIPAL", src, dbu: usd / 0.7, q: Math.round(usd * (8 + rnd() * 12)), usd });
+      }
+    }
+    for (const [cat, prod, res] of nonWh) {
+      const who = prod === "JOBS" ? sps[0] : users[Math.floor(rnd() * 4)];
+      const usd = (prod === "JOBS" ? 30 : prod === "ALL_PURPOSE" ? 26 : 10) * (0.6 + rnd() * 0.8) * (prod === "ALL_PURPOSE" ? wk : 1) * growth;
+      out.push({ d, ws: ws[1 + Math.floor(rnd() * 3)], cat, res, prod, sku: "PREMIUM_" + prod, who, idt: who.includes("@") ? "USER" : "SERVICE_PRINCIPAL",
+                 src: "Unknown", dbu: usd / 0.4, q: 0, usd });
+    }
+  }
+  return out;
+}
+
+/* --------------------------------- state ---------------------------------- */
+let DATA = []; let META = {};
+const FX = {}; // { "INR": { "2026-09": 95.83, ... } }
+const charts = {};
+let sortUser = { col: "total", dir: -1 };
+
+/* ----------------------------- FX (Frankfurter) ---------------------------- */
+// Fetch daily USD->ccy rates and keep the LAST available rate on/before each month end.
+async function loadFx(ccy, months) {
+  if (ccy === "USD") return;
+  if (FX[ccy] && months.every((m) => FX[ccy][m])) return;
+  const first = months[0] + "-01";
+  $("fxStatus").textContent = `Fetching USD→${ccy} rates from api.frankfurter.dev…`;
+  try {
+    const from = new Date(first); from.setDate(from.getDate() - 10); // cover a month starting on a weekend
+    const url = `https://api.frankfurter.dev/v1/${from.toISOString().slice(0, 10)}..?base=USD&symbols=${ccy}`;
+    const res = await fetch(url); if (!res.ok) throw new Error(res.status);
+    const js = await res.json();
+    const days = Object.keys(js.rates).sort();
+    FX[ccy] = {};
+    for (const m of months) {
+      const [y, mo] = m.split("-").map(Number);
+      const end = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); // month end
+      const eligible = days.filter((d) => d <= end);
+      if (eligible.length) FX[ccy][m] = js.rates[eligible[eligible.length - 1]][ccy];
+    }
+    $("fxStatus").textContent = `USD→${ccy}: ` + months.map((m) => `${m} ${FX[ccy][m] ? FX[ccy][m].toFixed(4) : "n/a"}`).join(" · ") + "  (ECB reference rates via Frankfurter)";
+  } catch (e) {
+    $("fxStatus").textContent = `Could not fetch FX rates (${e.message}). Enter a manual rate to convert.`;
+  }
+}
+
+function rateFor(month) {
+  const ccy = $("fCcy").value; const manual = parseFloat($("fRate").value);
+  if (ccy === "USD") return 1;
+  if (!isNaN(manual) && manual > 0) return manual;
+  return (FX[ccy] && FX[ccy][month]) || NaN;
+}
+
+/* ------------------------------- formatting -------------------------------- */
+function money(v, compact) {
+  const ccy = $("fCcy").value;
+  if (isNaN(v)) return "-";
+  return new Intl.NumberFormat(LOCALE[ccy] || "en-US", { style: "currency", currency: ccy,
+    notation: compact ? "compact" : "standard", maximumFractionDigits: compact ? 1 : 0 }).format(v);
+}
+const num = (v, c) => new Intl.NumberFormat("en-US", { notation: c ? "compact" : "standard", maximumFractionDigits: c ? 1 : 0 }).format(v);
+
+/* -------------------------------- filters ---------------------------------- */
+const FILTERS = [["fMonth", (r) => r.d.slice(0, 7)], ["fWs", (r) => r.ws], ["fCat", (r) => r.cat],
+                 ["fProd", (r) => r.prod], ["fIdt", (r) => r.idt], ["fSrc", (r) => r.src]];
+
+function fillSelect(id, values, all = "All") {
+  const s = $(id); const cur = s.value;
+  s.innerHTML = `<option value="">${all}</option>` + values.map((v) => `<option>${v}</option>`).join("");
+  if (values.includes(cur)) s.value = cur;
+}
+
+function filtered() {
+  const active = FILTERS.map(([id, fn]) => [$(id).value, fn]).filter(([v]) => v);
+  return DATA.filter((r) => active.every(([v, fn]) => fn(r) === v));
+}
+
+/* --------------------------------- render ---------------------------------- */
+function groupSum(rows, keyFn, valFn) {
+  const m = new Map();
+  for (const r of rows) { const k = keyFn(r); m.set(k, (m.get(k) || 0) + valFn(r)); }
+  return m;
+}
+
+function baseOpts(horizontal, fmt) {
+  const ink = css("--text-secondary"); const grid = css("--grid");
+  const valueTicks = { color: ink, callback: (v) => fmt(v, true) };
+  const catTicks = { color: ink, autoSkip: true, maxRotation: 0,
+    callback: function (v) { const l = String(this.getLabelForValue(v)); return l.length > 28 ? l.slice(0, 27) + "…" : l; } };
+  return {
+    responsive: true, maintainAspectRatio: false, indexAxis: horizontal ? "y" : "x", animation: false,
+    plugins: { legend: { display: false },
+      tooltip: { callbacks: { label: (c) => " " + fmt(horizontal ? c.parsed.x : c.parsed.y) } } },
+    scales: {
+      x: { grid: { display: horizontal, color: grid }, ticks: horizontal ? valueTicks : catTicks },
+      y: { grid: { display: !horizontal, color: grid }, ticks: horizontal ? catTicks : valueTicks },
+    },
+  };
+}
+
+function drawBar(id, labels, values, { horizontal = false, color = "--series-1", fmt = money } = {}) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart($(id), {
+    type: "bar",
+    data: { labels, datasets: [{ data: values, backgroundColor: css(color), borderRadius: 4, borderSkipped: "start", maxBarThickness: 34 }] },
+    options: baseOpts(horizontal, fmt),
+  });
+}
+
+function drawLine(id, labels, values) {
+  if (charts[id]) charts[id].destroy();
+  const o = baseOpts(false, money);
+  o.interaction = { mode: "index", intersect: false };
+  o.scales.x.ticks.maxTicksLimit = 12;
+  charts[id] = new Chart($(id), {
+    type: "line",
+    data: { labels, datasets: [{ data: values, borderColor: css("--series-1"), backgroundColor: css("--series-1") + "22", fill: true,
+                                 borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.25 }] },
+    options: o,
+  });
+}
+
+function topN(map, n) { return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, n); }
+
+async function render() {
+  const rows = filtered();
+  const months = [...new Set(DATA.map((r) => r.d.slice(0, 7)))].sort();
+  await loadFx($("fCcy").value, months);
+  const local = (r) => r.usd * rateFor(r.d.slice(0, 7));
+
+  // KPIs
+  const usd = rows.reduce((s, r) => s + r.usd, 0);
+  const loc = rows.reduce((s, r) => s + local(r), 0);
+  const days = new Set(rows.map((r) => r.d)).size || 1;
+  $("kCost").textContent = money(loc);
+  $("kCostH").textContent = $("fCcy").value === "USD" ? "list price" : `USD ${num(usd)} at list price`;
+  $("kRate").textContent = $("fCcy").value === "USD" ? "1.00" : (usd ? (loc / usd).toFixed(2) : "-");
+  $("kDbu").textContent = num(rows.reduce((s, r) => s + r.dbu, 0));
+  $("kQ").textContent = num(rows.reduce((s, r) => s + r.q, 0));
+  $("kIds").textContent = num(new Set(rows.filter((r) => r.usd > 0).map((r) => r.who)).size);
+  $("kAvg").textContent = money(loc / days);
+
+  // Month (all months in the current non-month filters, so the trend stays visible)
+  const byMonth = groupSum(rows, (r) => r.d.slice(0, 7), local);
+  const ml = [...byMonth.keys()].sort();
+  drawBar("chMonth", ml, ml.map((m) => byMonth.get(m)));
+
+  const byDay = groupSum(rows, (r) => r.d, local);
+  const dl = [...byDay.keys()].sort();
+  drawLine("chDay", dl, dl.map((d) => byDay.get(d)));
+
+  const prod = topN(groupSum(rows, (r) => r.prod, local), 12);
+  drawBar("chProd", prod.map((x) => x[0]), prod.map((x) => x[1]), { horizontal: true });
+  const cat = topN(groupSum(rows, (r) => r.cat, local), 8);
+  drawBar("chCat", cat.map((x) => x[0]), cat.map((x) => x[1]), { horizontal: true });
+  const src = topN(groupSum(rows.filter((r) => r.cat === "SQL Warehouse"), (r) => r.src, local), 10);
+  drawBar("chSrc", src.map((x) => x[0]), src.map((x) => x[1]), { horizontal: true });
+  const usr = topN(groupSum(rows, (r) => r.who, local), 15);
+  drawBar("chUser", usr.map((x) => x[0]), usr.map((x) => x[1]), { horizontal: true });
+
+  // Workspace x resource table
+  const res = topN(groupSum(rows, (r) => r.ws + "\u0000" + r.res, local), 200);
+  $("tRes").innerHTML = "<thead><tr><th>Workspace</th><th>Compute resource</th><th>Cost</th><th>Share</th></tr></thead><tbody>" +
+    res.map(([k, v]) => { const [w, c] = k.split("\u0000"); return `<tr><td>${esc(w)}</td><td style="text-align:left">${esc(c)}</td><td>${money(v)}</td><td>${loc ? (v / loc * 100).toFixed(1) : 0}%</td></tr>`; }).join("") + "</tbody>";
+
+  renderUserTable(rows, local);
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+// Identity x month matrix with a single-hue (sequential) heat shading.
+function renderUserTable(rows, local) {
+  const months = [...new Set(rows.map((r) => r.d.slice(0, 7)))].sort();
+  const m = new Map();
+  for (const r of rows) {
+    if (!m.has(r.who)) m.set(r.who, { who: r.who, idt: r.idt, total: 0 });
+    const o = m.get(r.who); const k = r.d.slice(0, 7); const v = local(r);
+    o[k] = (o[k] || 0) + v; o.total += v;
+  }
+  const term = $("search").value.toLowerCase();
+  let list = [...m.values()].filter((o) => o.who.toLowerCase().includes(term));
+  list.sort((a, b) => ((a[sortUser.col] || 0) > (b[sortUser.col] || 0) ? 1 : -1) * sortUser.dir);
+  if (sortUser.col === "who") list.sort((a, b) => a.who.localeCompare(b.who) * sortUser.dir);
+  const max = Math.max(1, ...list.flatMap((o) => months.map((k) => o[k] || 0)));
+  const lo = hex(css("--seq-lo")), hi = hex(css("--seq-hi"));
+  const shade = (v) => { const t = Math.sqrt(v / max); const c = lo.map((x, i) => Math.round(x + (hi[i] - x) * t));
+                         return `background:rgb(${c});color:${t > 0.55 ? "#fff" : "inherit"}`; };
+  $("tUser").innerHTML = `<thead><tr><th data-c="who">Identity</th><th data-c="idt">Type</th>${months.map((k) => `<th data-c="${k}">${k}</th>`).join("")}<th data-c="total">Total</th></tr></thead><tbody>` +
+    list.map((o) => `<tr><td>${esc(o.who)}</td><td>${o.idt}</td>${months.map((k) => `<td style="${o[k] ? shade(o[k]) : ""}">${o[k] ? money(o[k]) : ""}</td>`).join("")}<td><b>${money(o.total)}</b></td></tr>`).join("") + "</tbody>";
+  $("tUser").querySelectorAll("th").forEach((th) => th.onclick = () => {
+    const c = th.dataset.c; sortUser = { col: c, dir: sortUser.col === c ? -sortUser.dir : -1 }; renderUserTable(rows, local);
+  });
+}
+function hex(h) { h = h.replace("#", ""); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); }
+
+/* --------------------------------- loading --------------------------------- */
+function setData(records, meta = {}) {
+  DATA = records; META = meta;
+  $("empty").classList.add("hidden"); $("dash").classList.remove("hidden"); $("btnExport").classList.remove("hidden");
+  const uniq = (fn) => [...new Set(DATA.map(fn))].sort();
+  for (const [id, fn] of FILTERS) fillSelect(id, uniq(fn));
+  const months = uniq((r) => r.d.slice(0, 7));
+  const d0 = DATA.reduce((a, r) => (r.d < a ? r.d : a), "9999"), d1 = DATA.reduce((a, r) => (r.d > a ? r.d : a), "0000");
+  $("meta").textContent = `${num(DATA.length)} rows · ${d0} → ${d1}` + (meta.generated_at ? ` · extracted ${meta.generated_at}` : "") + (meta.source ? ` · ${meta.source}` : "");
+  $("subtitle").textContent = `${months[0]} to ${months[months.length - 1]} · ${meta.source || "usage & cost attribution from system tables"}`;
+  render();
+}
+
+function loadFile(file) {
+  const fr = new FileReader();
+  fr.onload = () => {
+    try {
+      const rows = parseCSV(fr.result); const head = rows.shift().map((h) => h.trim());
+      const recs = rows.map((r) => Object.fromEntries(head.map((h, i) => [h, r[i]])));
+      setData(normalise(recs), { source: file.name });
+    } catch (e) { alert("Could not read the CSV: " + e.message); }
+  };
+  fr.readAsText(file);
+}
+
+function exportCsv() {
+  const rows = filtered(); const ccy = $("fCcy").value;
+  const head = ["usage_date","workspace_name","compute_category","compute_resource_name","billing_origin_product","sku_name","attributed_to","identity_type","query_source","allocated_dbus","query_count","total_usage_price_usd","exchange_rate","total_usage_price_" + ccy.toLowerCase()];
+  const q = (v) => /[",\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  const lines = rows.map((r) => { const rt = rateFor(r.d.slice(0, 7)); return [r.d, r.ws, r.cat, r.res, r.prod, r.sku, r.who, r.idt, r.src, r.dbu.toFixed(4), r.q, r.usd.toFixed(4), rt, (r.usd * rt).toFixed(2)].map(q).join(","); });
+  const blob = new Blob([head.join(",") + "\n" + lines.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "databricks_cost_filtered.csv"; a.click();
+}
+
+/* --------------------------------- wiring ---------------------------------- */
+$("fCcy").innerHTML = ECB_CCY.map((c) => `<option>${c}</option>`).join("");
+$("fCcy").value = "INR";
+for (const [id] of FILTERS) $(id).onchange = render;
+$("fCcy").onchange = () => { $("fRate").value = ""; render(); };
+$("fRate").onchange = render;
+$("search").oninput = () => render();
+$("file").onchange = (e) => e.target.files[0] && loadFile(e.target.files[0]);
+$("btnDemo").onclick = $("btnDemo2").onclick = () => setData(demoData(), { source: "synthetic demo data" });
+$("btnExport").onclick = exportCsv;
+document.addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("drag"); });
+document.addEventListener("dragleave", () => document.body.classList.remove("drag"));
+document.addEventListener("drop", (e) => { e.preventDefault(); document.body.classList.remove("drag"); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+if (EMBEDDED && EMBEDDED.rows) {
+  if (EMBEDDED.currency) $("fCcy").value = EMBEDDED.currency;
+  setData(normalise(EMBEDDED.rows), EMBEDDED.meta || {});
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+// =====================================================================================
+// DAX measures for the Databricks Cost Analysis report
+// Author: Balachandra Srinevasalu · MIT License
+//
+// Model:
+//   billing_usage[calendar_month]  *──1  fx_rates_monthly[calendar_month]
+//   (many-to-one, single direction, fx -> billing)
+// Create the measures on the billing_usage table.
+// =====================================================================================
+
+Total Cost USD =
+SUM ( billing_usage[total_usage_price_usd] )
+
+Allocated DBUs =
+SUM ( billing_usage[allocated_dbus] )
+
+Total Query Count =
+SUM ( billing_usage[query_count] )
+
+Total Duration (min) =
+SUM ( billing_usage[total_duration_ms] ) / 60000
+
+// Rate for a month; falls back to the most recent earlier month if one is missing.
+Month Rate (row) =
+VAR m = SELECTEDVALUE ( billing_usage[calendar_month] )
+VAR r = LOOKUPVALUE ( fx_rates_monthly[exchange_rate], fx_rates_monthly[calendar_month], m )
+VAR fallback =
+    CALCULATE (
+        MAX ( fx_rates_monthly[exchange_rate] ),
+        TOPN ( 1,
+               FILTER ( ALL ( fx_rates_monthly ), fx_rates_monthly[calendar_month] <= m ),
+               fx_rates_monthly[calendar_month], DESC )
+    )
+RETURN COALESCE ( r, fallback )
+
+// Local-currency cost: convert each month at its own month-end rate, then add up.
+// Correct even when the user selects several months.
+Total Cost Local =
+SUMX (
+    VALUES ( billing_usage[calendar_month] ),
+    CALCULATE ( [Total Cost USD] ) * [Month Rate (row)]
+)
+
+// KPI card: the rate in use (single month) or the cost-weighted average across months.
+Exchange Rate =
+DIVIDE ( [Total Cost Local], [Total Cost USD] )
+
+Local Currency =
+SELECTEDVALUE ( fx_rates_monthly[local_currency], "USD" )
+
+Cost Share % =
+DIVIDE ( [Total Cost Local], CALCULATE ( [Total Cost Local], ALLSELECTED () ) )
+
+Last Refreshed =
+"Last refreshed " & FORMAT ( NOW (), "dd-mmm-yyyy hh:nn AM/PM" )
+
+Cost MoM % =
+VAR cur  = [Total Cost Local]
+VAR prev = CALCULATE ( [Total Cost Local],
+                       DATEADD ( billing_usage[usage_date], -1, MONTH ) )
+RETURN DIVIDE ( cur - prev, prev )
+// Tip: Cost MoM % needs a proper Date table marked as a date table for DATEADD;
+// add one (CALENDARAUTO()) and relate it to billing_usage[usage_date] for best results.

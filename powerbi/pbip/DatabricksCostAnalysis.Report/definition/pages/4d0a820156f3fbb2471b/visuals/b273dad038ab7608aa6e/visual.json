@@ -1,0 +1,346 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json",
+  "name": "b273dad038ab7608aa6e",
+  "position": {
+    "x": 10,
+    "y": 436,
+    "z": 9000,
+    "width": 1260,
+    "height": 276,
+    "tabOrder": 9000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "usage_date"
+                }
+              },
+              "queryRef": "billing_usage.usage_date",
+              "nativeQueryRef": "usage_date"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "workspace_name"
+                }
+              },
+              "queryRef": "billing_usage.workspace_name",
+              "nativeQueryRef": "workspace_name"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "compute_category"
+                }
+              },
+              "queryRef": "billing_usage.compute_category",
+              "nativeQueryRef": "compute_category"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "compute_resource_name"
+                }
+              },
+              "queryRef": "billing_usage.compute_resource_name",
+              "nativeQueryRef": "compute_resource_name"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "sku_name"
+                }
+              },
+              "queryRef": "billing_usage.sku_name",
+              "nativeQueryRef": "sku_name"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "attributed_to"
+                }
+              },
+              "queryRef": "billing_usage.attributed_to",
+              "nativeQueryRef": "attributed_to"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "identity_type"
+                }
+              },
+              "queryRef": "billing_usage.identity_type",
+              "nativeQueryRef": "identity_type"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "query_source"
+                }
+              },
+              "queryRef": "billing_usage.query_source",
+              "nativeQueryRef": "query_source"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "attribution_method"
+                }
+              },
+              "queryRef": "billing_usage.attribution_method",
+              "nativeQueryRef": "attribution_method"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "Allocated DBUs"
+                }
+              },
+              "queryRef": "billing_usage.Allocated DBUs",
+              "nativeQueryRef": "Allocated DBUs"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "Total Query Count"
+                }
+              },
+              "queryRef": "billing_usage.Total Query Count",
+              "nativeQueryRef": "Total Query Count"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "Total Cost USD"
+                }
+              },
+              "queryRef": "billing_usage.Total Cost USD",
+              "nativeQueryRef": "Total Cost USD"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "billing_usage"
+                    }
+                  },
+                  "Property": "Total Cost Local"
+                }
+              },
+              "queryRef": "billing_usage.Total Cost Local",
+              "nativeQueryRef": "Total Cost Local"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "billing_usage"
+                  }
+                },
+                "Property": "usage_date"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#FFFFFF'"
+                    }
+                  }
+                }
+              }
+            },
+            "transparency": {
+              "expr": {
+                "Literal": {
+                  "Value": "0D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#E3E2DC'"
+                    }
+                  }
+                }
+              }
+            },
+            "radius": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Detail'"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#14213D'"
+                    }
+                  }
+                }
+              }
+            },
+            "fontSize": {
+              "expr": {
+                "Literal": {
+                  "Value": "11D"
+                }
+              }
+            },
+            "bold": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

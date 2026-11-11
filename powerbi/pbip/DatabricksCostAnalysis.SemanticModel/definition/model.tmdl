@@ -1,0 +1,19 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["DataSource", "ServerHostname", "HttpPath", "Catalog", "Schema", "ViewName", "LocalCurrency", "DemoDataPath", "billing_usage", "fx_rates_monthly"]
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table billing_usage
+ref table fx_rates_monthly
+
+ref cultureInfo en-US
+
