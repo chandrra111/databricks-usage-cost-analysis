@@ -16,7 +16,8 @@
    The hard part this view solves is SQL Warehouse attribution. A warehouse is shared:
    billing only tells you "warehouse X cost $Y today", not who ran the queries. This view
    splits each warehouse's daily cost across the people who used it, in proportion to the
-   number of queries each person ran that day (from system.query.history).
+   number of queries each person ran that day, or optionally their total query duration
+   (from system.query.history; see cte_config).
    Everything else (jobs, clusters, serverless notebooks ...) is attributed directly from
    the identity metadata already present in system.billing.usage.
 
@@ -58,6 +59,19 @@
 CREATE OR REPLACE VIEW <catalog>.<schema>.vw_billing_usage_with_attribution AS
 -- @@VIEW_BODY_START@@  (marker used by python/run_cost_report.py --inline; keep this line)
 WITH
+
+/* -------------------------------------------------------------------------------------
+   0) Configuration: how shared SQL Warehouse cost is split between users
+   'QUERY_COUNT' (default) : by the number of queries each user ran. Simple to explain.
+   'DURATION'              : by total query task duration (total_task_duration_ms).
+                             Fairer for mixed workloads, where one heavy query uses far
+                             more compute than many quick ones. Databricks does not
+                             publish DBUs per query, so duration is the closest proxy.
+   Change the literal below and re-create the view to switch.
+   ------------------------------------------------------------------------------------- */
+cte_config AS (
+  SELECT 'QUERY_COUNT' AS allocation_basis      -- <== 'QUERY_COUNT' or 'DURATION'
+),
 
 /* -------------------------------------------------------------------------------------
    1) Reporting window
@@ -177,11 +191,13 @@ cte_query_activity AS (
 ),
 
 /* -------------------------------------------------------------------------------------
-   6a) Attach query activity to each warehouse usage line and count the total queries
-       behind that SAME usage line.
-   The window is partitioned at the exact grain of cte_warehouse_usage (one usage line),
-   so if a warehouse has more than one billing line on a day (e.g. two SKUs) each line's
-   cost is split independently and nothing is double-counted.
+   6a) Attach query activity to each warehouse usage line and total the activity behind
+       that SAME usage line.
+   allocation_weight = the user's share driver, chosen by cte_config.allocation_basis:
+       query count, or total query duration in ms.
+   The windows are partitioned at the exact grain of cte_warehouse_usage (one usage
+   line), so if a warehouse has more than one billing line on a day (e.g. two SKUs) each
+   line's cost is split independently and nothing is double-counted.
    ------------------------------------------------------------------------------------- */
 cte_warehouse_allocation_base AS (
   SELECT
@@ -193,6 +209,21 @@ cte_warehouse_allocation_base AS (
     q.client_application,
     q.statement_type,
     q.statement_text_preview,
+    cfg.allocation_basis,
+    CASE
+      WHEN cfg.allocation_basis = 'DURATION' THEN COALESCE(q.total_duration_ms, 0)
+      ELSE q.query_count
+    END AS allocation_weight,
+    SUM(
+      CASE
+        WHEN cfg.allocation_basis = 'DURATION' THEN COALESCE(q.total_duration_ms, 0)
+        ELSE q.query_count
+      END
+    ) OVER (
+      PARTITION BY w.account_id, w.usage_date, w.workspace_id, w.warehouse_id,
+                   w.sku_name, w.billing_origin_product, w.is_serverless,
+                   w.run_as, w.created_by, w.owned_by
+    ) AS total_allocation_weight,
     SUM(q.query_count) OVER (
       PARTITION BY w.account_id, w.usage_date, w.workspace_id, w.warehouse_id,
                    w.sku_name, w.billing_origin_product, w.is_serverless,
@@ -200,6 +231,7 @@ cte_warehouse_allocation_base AS (
     ) AS total_warehouse_queries
   FROM
     cte_warehouse_usage w
+      CROSS JOIN cte_config cfg
       LEFT JOIN cte_query_activity q
         ON  w.usage_date   = q.query_date
         AND w.workspace_id = q.workspace_id
@@ -208,22 +240,29 @@ cte_warehouse_allocation_base AS (
 
 /* -------------------------------------------------------------------------------------
    6b) Proportional allocation
-   allocated_cost = (user's queries / all queries on that usage line) x line cost
-   Example: warehouse cost $100 on a day; Asha ran 30 queries, a BI service principal
-   ran 70  -> Asha $30, service principal $70.
-   If a warehouse burned cost but no query was recorded (idle uptime / warm-up / auto-
-   stop delay), the full cost is kept and later attributed to the warehouse owner, so
-   the view still reconciles to total billing.
+   allocated_cost = (user's weight / total weight on that usage line) x line cost
+   Example (QUERY_COUNT): warehouse cost $100; Asha ran 30 queries, a BI service
+   principal ran 70 -> Asha $30, service principal $70.
+   Example (DURATION): same day, but Asha's 30 queries took 2 minutes in total and the
+   service principal's 70 took 18 minutes -> Asha $10, service principal $90.
+   Fallbacks keep the view reconciled to billing:
+   - DURATION chosen but no duration recorded on the line -> split by query count.
+   - No query recorded at all (idle uptime / warm-up / auto-stop delay) -> the full
+     cost is kept and later attributed to the warehouse owner.
    ------------------------------------------------------------------------------------- */
 cte_warehouse_allocation AS (
   SELECT
     b.*,
     CASE
+      WHEN b.total_allocation_weight > 0
+        THEN (b.allocation_weight * 1.0 / b.total_allocation_weight) * b.total_cost_usd
       WHEN b.total_warehouse_queries > 0
         THEN (b.query_count * 1.0 / b.total_warehouse_queries) * b.total_cost_usd
       ELSE b.total_cost_usd                           -- idle cost, not lost
     END AS allocated_cost_usd,
     CASE
+      WHEN b.total_allocation_weight > 0
+        THEN (b.allocation_weight * 1.0 / b.total_allocation_weight) * b.usage_quantity
       WHEN b.total_warehouse_queries > 0
         THEN (b.query_count * 1.0 / b.total_warehouse_queries) * b.usage_quantity
       ELSE b.usage_quantity

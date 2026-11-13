@@ -22,13 +22,14 @@ system.compute.warehouses / clusters, system.access.workspaces_latest ─ friend
 
 | # | CTE | What it does |
 |---|---|---|
+| 0 | `cte_config` | Allocation basis for shared warehouses: `QUERY_COUNT` (default) or `DURATION`. |
 | 1 | `cte_calendar` | Rolling window: 1st of the month six months ago → today. Change `-6` to widen or narrow it. |
 | 2 | `cte_warehouses` | Latest name, type and size per warehouse (the table is a change log, so `ROW_NUMBER` keeps the newest row). |
 | 3 | `cte_clusters` | Latest name and owner per cluster, using the same pattern. |
 | 4 | `cte_warehouse_usage` | Warehouse DBUs × the list price valid on that date = daily USD cost per warehouse usage line. |
 | 5 | `cte_query_activity` | Query count and duration per user × warehouse × day × client app × statement type, plus a 500-character SQL preview. |
 | 6a | `cte_warehouse_allocation_base` | Attaches query activity to each usage line and totals the queries behind that line. |
-| 6b | `cte_warehouse_allocation` | `user cost = user queries ÷ total queries × line cost`. Idle cost (no queries) is kept whole. |
+| 6b | `cte_warehouse_allocation` | `user cost = user weight ÷ total weight × line cost`, where weight is query count or query duration. Idle cost (no queries) is kept whole. |
 | 7 | `cte_non_warehouse_usage` | Jobs, clusters, serverless notebooks, apps, vector search, model serving and so on, attributed directly to `run_as` → `owned_by` → `created_by`. |
 | 8 | `cte_combined` | Unions both halves into one schema and classifies `query_source` from `client_application` (Power BI, SQL Editor, Genie, API, Tableau ...). |
 | 9 | final `SELECT` | Readable defaults instead of NULLs, `identity_type` (USER / SERVICE_PRINCIPAL / SYSTEM) and `attribution_confidence`. |
@@ -43,7 +44,25 @@ A warehouse costs **$100** on a day. Three identities ran queries:
 | BI service principal | 60 | 60% | $60 |
 | genie user | 10 | 10% | $10 |
 
-Query count is used rather than duration because it is robust and easy to explain. If you prefer to weight by compute time, swap `query_count` for `total_duration_ms` in step 6.
+### Choosing the allocation basis: query count or duration
+
+Query count is the default because it is robust and easy to explain. Its weakness: a burst of quick queries outweighs one heavy query that used most of the compute. For warehouses with mixed workloads, switch to duration weighting in `cte_config` at the top of the view:
+
+```sql
+cte_config AS (
+  SELECT 'DURATION' AS allocation_basis      -- 'QUERY_COUNT' or 'DURATION'
+),
+```
+
+Same $100 warehouse-day, weighted by total query duration:
+
+| Identity | Queries | Total duration | Share | Allocated cost |
+|---|---:|---:|---:|---:|
+| analyst@company.com | 30 | 2 min | 10% | $10 |
+| BI service principal | 60 | 17 min | 85% | $85 |
+| genie user | 10 | 1 min | 5% | $5 |
+
+Databricks does not publish DBUs per query (billing is per warehouse, not per statement), so `total_task_duration_ms` from `system.query.history` is the closest available proxy for compute consumed. If no duration is recorded on a usage line, the view falls back to query count, so totals still reconcile. With the Python script, use `--inline --allocation-basis DURATION`.
 
 ## Key output columns
 
