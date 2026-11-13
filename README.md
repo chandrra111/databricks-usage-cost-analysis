@@ -20,7 +20,7 @@ A ready-to-use kit built only on Databricks **system tables**. It works for any 
 
 ## Key ideas
 
-- **Fair SQL Warehouse chargeback.** Each warehouse's daily cost is split across users in proportion to the queries they ran (`system.query.history`). Idle cost stays with the warehouse owner, so totals reconcile to billing.
+- **Fair SQL Warehouse chargeback.** Each warehouse's daily cost is split across users in proportion to the queries they ran (`system.query.history`), by query count or, with one setting, by query duration. Idle cost stays with the warehouse owner, so totals reconcile to billing.
 - **Direct attribution for everything else.** Jobs, clusters, serverless notebooks, apps and vector search use `run_as` → `owned_by` → `created_by`.
 - **"Which tool drove the cost?"** Power BI, SQL Editor, Genie, Dashboards, APIs, Tableau, Notebooks.
 - **Users vs. service principals**, with an attribution-confidence flag on every row.

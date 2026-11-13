@@ -74,13 +74,18 @@ HAVING SUM(total_usage_price_usd) <> 0 OR SUM(query_count) <> 0
 """
 
 
-def inline_view_body(sql_path: Path) -> str:
+def inline_view_body(sql_path: Path, basis: str | None = None) -> str:
     """Return the SELECT body of the view file (everything after the marker line)."""
     text = sql_path.read_text(encoding="utf-8")
     marker = "-- @@VIEW_BODY_START@@"
     if marker not in text:
         sys.exit(f"Marker '{marker}' not found in {sql_path}")
     body = text.split(marker, 1)[1].split("\n", 1)[1]
+    if basis:
+        literal = "'QUERY_COUNT' AS allocation_basis"
+        if literal not in body:
+            sys.exit("allocation_basis setting not found in the view SQL.")
+        body = body.replace(literal, f"'{basis}' AS allocation_basis", 1)
     return body.strip().rstrip(";")
 
 
@@ -101,6 +106,8 @@ def main() -> None:
     src.add_argument("--view", help="Fully qualified view name, e.g. main.finops.vw_billing_usage_with_attribution")
     src.add_argument("--inline", action="store_true", help="Run the view SQL inline (no view needed)")
     p.add_argument("--sql-file", default=str(DEFAULT_SQL), help="View SQL file used with --inline")
+    p.add_argument("--allocation-basis", choices=["QUERY_COUNT", "DURATION"], default=None,
+                   help="With --inline: split shared warehouse cost by query count (default) or query duration")
     p.add_argument("--months", type=int, default=6, help="Months of history (the view itself caps at its own window)")
     p.add_argument("--currency", default="INR", help="Default display currency in the dashboard (ISO code)")
     p.add_argument("--out", default="databricks_cost_report", help="Output file prefix (writes .csv and .html)")
@@ -109,6 +116,8 @@ def main() -> None:
 
     if not a.token:
         sys.exit("No token. Pass --token or set DATABRICKS_TOKEN.")
+    if a.allocation_basis and not a.inline:
+        sys.exit("--allocation-basis only applies with --inline. For a view, edit cte_config in the SQL and re-create it.")
     if not a.view and not a.inline:
         sys.exit("Choose a source: --view <catalog.schema.view> or --inline")
 
@@ -118,7 +127,7 @@ def main() -> None:
         sys.exit("Missing dependency: pip install databricks-sql-connector")
 
     host = a.host.replace("https://", "").rstrip("/")
-    source = a.view if a.view else f"(\n{inline_view_body(Path(a.sql_file))}\n) AS v"
+    source = a.view if a.view else f"(\n{inline_view_body(Path(a.sql_file), a.allocation_basis)}\n) AS v"
     query = AGG_SQL.format(source=source, months=int(a.months))
 
     print(f"Connecting to {host} ...")
